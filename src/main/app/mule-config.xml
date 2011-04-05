@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xmlns:spring="http://www.springframework.org/schema/beans"
+      xmlns:mongodb="http://www.mulesoft.org/schema/mule/mongodb"
+      xmlns:git="http://www.mulesoft.org/schema/mule/git"
+      xmlns:maven="http://www.mulesoft.org/schema/mule/maven"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting"
+      xmlns:jetty="http://www.mulesoft.org/schema/mule/jetty"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/3.1/mule.xsd
+        http://www.mulesoft.org/schema/mule/mongodb http://www.mulesoft.org/schema/mule/mongodb/3.1/mule-mongodb.xsd
+        http://www.mulesoft.org/schema/mule/git http://www.mulesoft.org/schema/mule/git/1.2/mule-git.xsd
+        http://www.mulesoft.org/schema/mule/maven http://www.mulesoft.org/schema/mule/maven/1.0/mule-maven.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/3.1/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/3.1/mule-scripting.xsd
+        http://www.mulesoft.org/schema/mule/jetty http://www.mulesoft.org/schema/mule/jetty/3.1/mule-jetty.xsd
+        http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+
+    <description>
+        JavaDoc as a Service
+    </description>
+
+    <git:config directory="/tmp"/>
+    <maven:config directory="/tmp"/>
+
+    <mongodb:connector name="mongohq"
+                       database="jaas"
+                       username="jaas"
+                       password="jaas"
+                       hostname="flame.mongohq.com:27081"
+                       pollingFrequency="600000"/>
+
+    <jetty:connector name="fileServer" configFile="jetty-config.xml"/>
+
+    <flow name="updateRepositories">
+        <mongodb:inbound-endpoint collection="repositories"/>
+        <logger level="INFO" message="#[payload]"/>
+        <splitter evaluator="json" expression=""/>
+        <logger message="Processing #[json:name] repository" level="INFO"/>
+        <message-properties-transformer>
+            <add-message-property key="directory" value="#[string:#[string:/tmp/repositories/]#[json:name]]"/>
+            <add-message-property key="docDir" value="#[string:#[string:/tmp/documentation/]#[json:name]]"/>
+        </message-properties-transformer>
+        <choice>
+            <when expression='(new File(message.getProperty("directory"))).exists()' evaluator="groovy">
+                <logger message="Pulling master into #[header:directory]" level="INFO"/>
+                <git:fetch overrideDirectory="#[header:directory]"/>
+            </when>
+            <otherwise>
+                <logger message="Cloning #[json:uri] into #[header:directory]" level="INFO"/>
+                <git:clone overrideDirectory="#[header:directory]" uri="#[json:uri]"/>
+            </otherwise>
+        </choice>
+        <logger message="Generating documentation for #[json:name]" level="INFO"/>
+        <maven:execute-goal goal="javadoc:javadoc" overrideDirectory="#[header:directory]">
+            <maven:properties>
+                <maven:property key="reportOutputDirectory" value="#[header:docDir]"/>
+            </maven:properties>
+        </maven:execute-goal>
+    </flow>
+</mule>

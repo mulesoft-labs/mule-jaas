@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<!DOCTYPE Configure PUBLIC "-//Jetty//Configure//EN" "http://www.eclipse.org/jetty/configure.dtd">
+
+<Configure id="Server" class="org.mortbay.jetty.Server">
+    <Call name="addConnector">
+      <Arg>
+          <New class="org.mortbay.jetty.nio.SelectChannelConnector">
+            <Set name="port"><SystemProperty name="http.port" default="8081"/></Set>
+          </New>
+      </Arg>
+    </Call>
+    <Set name="handler">
+        <New id="ResourceHandler" class="org.mortbay.jetty.handler.ResourceHandler">
+            <Set name="resourceBase">/tmp/documentation/</Set>
+        </New>
+    </Set>
+</Configure>
