@@ -6,7 +6,7 @@ This example application will show you how to connect to a Mongo database, retri
 Dependencies
 ------------
 
-Git Connector
-Maven Connector
-MongoDB Transport
-Jetty Transport
+* Git Connector
+* Maven Connector
+* MongoDB Transport
+* Jetty Transport
