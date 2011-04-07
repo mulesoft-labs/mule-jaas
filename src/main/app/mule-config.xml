@@ -1,22 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <mule xmlns="http://www.mulesoft.org/schema/mule/core"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-      xmlns:spring="http://www.springframework.org/schema/beans"
       xmlns:mongodb="http://www.mulesoft.org/schema/mule/mongodb"
       xmlns:git="http://www.mulesoft.org/schema/mule/git"
       xmlns:maven="http://www.mulesoft.org/schema/mule/maven"
-      xmlns:http="http://www.mulesoft.org/schema/mule/http"
-      xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting"
+      xmlns:freemarker="http://www.mulesoft.org/schema/mule/freemarker"
+      xmlns:json="http://www.mulesoft.org/schema/mule/json"
       xmlns:jetty="http://www.mulesoft.org/schema/mule/jetty"
+      xmlns:file="http://www.mulesoft.org/schema/mule/file"
+      xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting"
       xsi:schemaLocation="
         http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/3.1/mule.xsd
         http://www.mulesoft.org/schema/mule/mongodb http://www.mulesoft.org/schema/mule/mongodb/3.1/mule-mongodb.xsd
         http://www.mulesoft.org/schema/mule/git http://www.mulesoft.org/schema/mule/git/1.2/mule-git.xsd
         http://www.mulesoft.org/schema/mule/maven http://www.mulesoft.org/schema/mule/maven/1.0/mule-maven.xsd
-        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/3.1/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/freemarker http://www.mulesoft.org/schema/mule/freemarker/1.0/mule-freemarker.xsd
+        http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/3.1/mule-json.xsd
+        http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/3.1/mule-file.xsd
         http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/3.1/mule-scripting.xsd
-        http://www.mulesoft.org/schema/mule/jetty http://www.mulesoft.org/schema/mule/jetty/3.1/mule-jetty.xsd
-        http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+        http://www.mulesoft.org/schema/mule/jetty http://www.mulesoft.org/schema/mule/jetty/3.1/mule-jetty.xsd">
 
     <description>
         JavaDoc as a Service
@@ -36,8 +38,30 @@
 
     <flow name="updateRepositories">
         <mongodb:inbound-endpoint collection="repositories"/>
-        <logger level="INFO" message="#[payload]"/>
         <splitter evaluator="json" expression=""/>
+        <flow-ref name="generateDocForRepository"/>
+        <collection-aggregator/>
+        <logger level="INFO" message="#[payload]"/>
+        <object-to-string-transformer/>
+        <json:json-to-object-transformer returnClass="org.mule.tools.jaas.Repository[]"/>
+        <flow-ref name="generateIndex"/>
+    </flow>
+
+    <flow name="generateIndex">
+        <logger message="Generating home page" level="INFO"/>
+        <freemarker:transformer template-file="index.ftl"/>
+        <logger level="INFO"/>
+        <logger level="INFO" message="#[payload]"/>
+        <scripting:component>
+            <scripting:script engine="groovy">
+                def index = new File("/tmp/documentation/index.html")
+                index.write(payload)
+                index.close
+            </scripting:script>
+        </scripting:component>
+    </flow>
+
+    <flow name="generateDocForRepository">
         <logger message="Processing #[json:name] repository" level="INFO"/>
         <message-properties-transformer>
             <add-message-property key="directory" value="#[string:#[string:/tmp/repositories/]#[json:name]]"/>
